@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --font-body: 'Outfit', sans-serif;
+  --font-heading: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --c-bg: #f3f5fa;
+  --c-surface: #ffffff;
+  --c-text: #1a1d2b;
+  --c-muted: #626679;
+  --c-border: #dfe4ef;
+  --c-input: #eef2f9;
+  --c-brand: #2658dd;
+  --c-brand-soft: #2658dd14;
+  --c-accent: #6ed943;
+  --c-ok: #15803d;
+  --c-ok-soft: #dcfce7;
+  --c-warn: #b45309;
+  --c-warn-soft: #fef3c7;
+  --c-bad: #b91c1c;
+  --c-bad-soft: #fee2e2;
+  --c-side: #0f1629;
+  --c-side-text: #c3c9dc;
+  --c-side-active: #1c2744;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --c-bg: #0b1020;
+    --c-surface: #131a2e;
+    --c-text: #e6e9f2;
+    --c-muted: #949ab0;
+    --c-border: #263049;
+    --c-input: #1b2440;
+    --c-brand: #6b8cff;
+    --c-brand-soft: #6b8cff1f;
+    --c-ok: #4ade80;
+    --c-ok-soft: #14532d66;
+    --c-warn: #fbbf24;
+    --c-warn-soft: #78350f66;
+    --c-bad: #f87171;
+    --c-bad-soft: #7f1d1d66;
+    --c-side: #080c18;
+    --c-side-active: #172038;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--c-text);
+  background: var(--c-bg);
+}
+
+.font-heading { font-family: var(--font-heading); }
+.font-mono { font-family: var(--font-mono); }
