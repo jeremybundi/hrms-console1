@@ -2,11 +2,7 @@ import { useState } from 'react'
 import { useI18n } from '../i18n/context'
 import { Button, Input, Modal, Textarea } from './ui'
 
-/**
- * Asks before a pause, delete, purge or erase. `reason` asks why (kept in the activity log);
- * `confirmText` makes the admin type something, such as the organisation's name, first.
- * `run` gets { reason, confirm } and rejects with the API's error to show it here.
- */
+
 export default function ActionModal({ title, children, actionLabel, danger, reason, reasonPlaceholder, confirmText, confirmLabel, run, onClose }) {
   const { t } = useI18n()
   const [why, setWhy] = useState('')
