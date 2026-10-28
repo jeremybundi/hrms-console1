@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { RiAddLine, RiSearchLine } from 'react-icons/ri'
+import { RiAddLine, RiDownloadLine, RiSearchLine } from 'react-icons/ri'
 import { createTenant, listTenants } from '../api/platform'
 import { useI18n } from '../i18n/context'
 import { useResource } from '../lib/useResource'
 import { useDebounced } from '../lib/useDebounced'
 import { formatDate, formatNumber, timeAgo } from '../lib/format'
+import { downloadCsv, fetchAll, toCsv } from '../lib/csv'
 import { useToast } from '../components/toast'
 import StatusBadge from '../components/StatusBadge'
 import { Button, Card, Input, Modal, PageHeader, Pagination, Select, Table } from '../components/ui'
@@ -21,13 +22,39 @@ export default function OrganisationsPage() {
   const q = useDebounced(search)
   const { data, loading, error } = useResource(() => listTenants({ search: q, status, page }), [q, status, page])
   const setStatus = (value) => { setParams(value ? { status: value } : {}, { replace: true }); setPage(1) }
+  const toast = useToast()
+  const [exporting, setExporting] = useState(false)
+
+  async function exportCsv() {
+    setExporting(true)
+    try {
+      const all = await fetchAll(listTenants, { search: q, status })
+      downloadCsv(`organisations-${new Date().toISOString().slice(0, 10)}.csv`, toCsv([
+        { header: 'Name', value: (r) => r.name },
+        { header: 'Domain', value: (r) => r.domain || r.slug },
+        { header: 'Owner', value: (r) => r.owner_email },
+        { header: 'Users', value: (r) => r.users_count },
+        { header: 'Employees', value: (r) => r.employees_count },
+        { header: 'Last payroll', value: (r) => r.last_payroll_period },
+        { header: 'Status', value: (r) => r.status },
+        { header: 'Joined', value: (r) => r.created_at },
+      ], all))
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <>
       <PageHeader
         title={t('Organisations')}
         subtitle={t('Every organisation on the platform. Open one to see its people, pause it or delete it.')}
-        actions={<Button icon={RiAddLine} onClick={() => setCreating(true)}>{t('New organisation')}</Button>}
+        actions={<>
+          <Button variant="outline" icon={RiDownloadLine} loading={exporting} onClick={exportCsv}>{t('Export CSV')}</Button>
+          <Button icon={RiAddLine} onClick={() => setCreating(true)}>{t('New organisation')}</Button>
+        </>}
       />
       <Card padded={false}>
         <div className="flex flex-wrap gap-3 border-b border-[var(--c-border)] p-4">

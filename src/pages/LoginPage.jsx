@@ -6,7 +6,7 @@ import LanguageSwitch from '../components/LanguageSwitch'
 import ThemeToggle from '../components/ThemeToggle'
 
 export default function LoginPage() {
-  const { signIn } = useAuth()
+  const { signIn, notice } = useAuth()
   const { t } = useI18n()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -42,6 +42,7 @@ export default function LoginPage() {
           <Input label={t('Email')} type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
           <Input label={t('Password')} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
+        {notice === 'idle' && !error && <p className="mt-4 rounded-lg bg-[var(--c-input)] px-3 py-2 text-sm text-[var(--c-muted)]">{t('You were signed out after 30 minutes without activity.')}</p>}
         {error && <p className="mt-4 rounded-lg bg-[var(--c-bad-soft)] px-3 py-2 text-sm text-[var(--c-bad)]">{error}</p>}
         <Button type="submit" loading={busy} className="mt-6 w-full">{t('Sign in')}</Button>
       </form>

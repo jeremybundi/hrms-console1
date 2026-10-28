@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
-import { RiBuilding2Line, RiDashboardLine, RiFileList3Line, RiHeartPulseLine, RiHistoryLine, RiLogoutBoxRLine, RiMenuLine, RiTeamLine } from 'react-icons/ri'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { RiBuilding2Line, RiDashboardLine, RiFileList3Line, RiHeartPulseLine, RiHistoryLine, RiLogoutBoxRLine, RiMenuLine, RiSearchLine, RiTeamLine } from 'react-icons/ri'
 import { useAuth } from '../auth/context'
 import { useI18n } from '../i18n/context'
 import { API_BASE_URL } from '../api/client'
+import ErrorBoundary from './ErrorBoundary'
 import LanguageSwitch from './LanguageSwitch'
+import SearchPalette from './SearchPalette'
 import ThemeToggle from './ThemeToggle'
 
 const NAV = [
@@ -25,6 +27,16 @@ export default function Shell() {
   const { user, signOut } = useAuth()
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
+  const { pathname } = useLocation()
+  const [searching, setSearching] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearching((s) => !s) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="min-h-screen lg:pl-64">
@@ -38,6 +50,12 @@ export default function Shell() {
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--c-side-strong)]">{t('Console')}</p>
             <span className={`rounded px-1.5 py-px text-[10px] font-bold uppercase tracking-wider ${ENV.tone}`}>{t(ENV.label)}</span>
           </div>
+        </div>
+        <div className="px-3 pt-2">
+          <button type="button" onClick={() => { setOpen(false); setSearching(true) }} className="flex w-full items-center gap-3 rounded-lg border border-[var(--c-side-border)] px-3 py-2 text-sm hover:bg-[var(--c-side-hover)] hover:text-[var(--c-side-strong)]">
+            <RiSearchLine size={16} /><span className="flex-1 text-left">{t('Search')}</span>
+            <kbd className="text-[10px] opacity-70">{/Mac|iPhone|iPad/.test(navigator.platform) ? '⌘K' : 'Ctrl K'}</kbd>
+          </button>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
           {NAV.map(({ to, label, icon: Icon, end }) => (
@@ -70,12 +88,15 @@ export default function Shell() {
         <button type="button" aria-label={t('Menu')} onClick={() => setOpen(true)} className="rounded-lg p-1.5 hover:bg-[var(--c-input)]"><RiMenuLine size={20} /></button>
         <img src="/hrmspay-icon.png" alt="" className="logo-light h-7 w-7" />
         <img src="/hrmspay-icon-dark.png" alt="" className="logo-dark h-7 w-7" />
-        <p className="font-heading text-sm font-bold">HRMSPAY {t('Console')}</p>
+        <p className="flex-1 font-heading text-sm font-bold">HRMSPAY {t('Console')}</p>
+        <button type="button" aria-label={t('Search')} onClick={() => setSearching(true)} className="rounded-lg p-1.5 hover:bg-[var(--c-input)]"><RiSearchLine size={20} /></button>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
-        <Outlet />
+        {/* Keyed by path, so moving to another page clears a crash. */}
+        <ErrorBoundary key={pathname}><Outlet /></ErrorBoundary>
       </main>
+      {searching && <SearchPalette onClose={() => setSearching(false)} />}
     </div>
   )
 }

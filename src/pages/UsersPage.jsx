@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { RiAddLine, RiBuilding2Line, RiLockLine, RiSearchLine } from 'react-icons/ri'
-import { addMember, getTenant, listTenants, listUsers } from '../api/platform'
+import { RiAddLine, RiBuilding2Line, RiDownloadLine, RiKey2Line, RiLockLine, RiPauseCircleLine, RiPlayCircleLine, RiSearchLine } from 'react-icons/ri'
+import { addMember, getTenant, listTenants, listUsers, pauseUser, resumeUser, sendPasswordLink } from '../api/platform'
 import { useI18n } from '../i18n/context'
 import { useResource } from '../lib/useResource'
 import { useDebounced } from '../lib/useDebounced'
 import { formatDate, roleLabel, timeAgo } from '../lib/format'
+import { downloadCsv, fetchAll, toCsv } from '../lib/csv'
 import { useToast } from '../components/toast'
+import ActionModal from '../components/ActionModal'
 import StatusBadge from '../components/StatusBadge'
 import { Badge, Button, Card, Input, Modal, PageHeader, Pagination, Select, Spinner, Table } from '../components/ui'
 
@@ -19,9 +21,14 @@ export default function UsersPage() {
   const status = params.get('status') ?? ''
   const page = Number(params.get('page') ?? 1)
   const q = useDebounced(search)
+  const toast = useToast()
   const [adding, setAdding] = useState(false)
+  // Picked users by id, kept across pages so a bulk action can span them.
+  const [picked, setPicked] = useState(() => new Map())
+  const [bulk, setBulk] = useState(null)
+  const [exporting, setExporting] = useState(false)
   // Nothing is listed until an organisation is chosen.
-  const { data, loading, error } = useResource(() => (tenantId ? listUsers({ search: q, tenant_id: tenantId, status, page }) : Promise.resolve(null)), [q, tenantId, status, page])
+  const { data, loading, error, reload } = useResource(() => (tenantId ? listUsers({ search: q, tenant_id: tenantId, status, page }) : Promise.resolve(null)), [q, tenantId, status, page])
   const { data: tenants } = useResource(() => listTenants({ per_page: 100, sort: 'name' }).then((r) => r.data), [])
 
   const setParam = (key, value) => {
@@ -29,7 +36,57 @@ export default function UsersPage() {
     if (value) next.set(key, value)
     else next.delete(key)
     if (key !== 'page') next.delete('page')
+    if (key === 'tenant_id') setPicked(new Map())
     setParams(next, { replace: true })
+  }
+
+  const rows = data?.data ?? []
+  const onSelect = (ids) => setPicked((prev) => {
+    const seen = new Map([...prev, ...rows.map((u) => [u.id, u])])
+    return new Map([...ids].map((id) => [id, seen.get(id)]))
+  })
+  const pickedUsers = [...picked.values()]
+  const eligible = {
+    pause: pickedUsers.filter((u) => u.status === 'active'),
+    resume: pickedUsers.filter((u) => u.status === 'paused'),
+    link: pickedUsers.filter((u) => u.status === 'active' || u.status === 'paused'),
+  }
+
+  /** Runs one call per user, one at a time, then says how it went. */
+  async function runBulk(users, call, doneMessage) {
+    const failed = []
+    for (const u of users) {
+      try { await call(u) } catch (err) { failed.push(`${u.email}: ${err.message}`) }
+    }
+    const ok = users.length - failed.length
+    if (ok) toast.success(t(doneMessage, { count: ok }))
+    if (failed.length) toast.error(t('{count} failed. {first}', { count: failed.length, first: failed[0] }))
+    setPicked(new Map())
+    setBulk(null)
+    reload({ quiet: true })
+  }
+
+  async function exportCsv() {
+    setExporting(true)
+    try {
+      const all = await fetchAll(listUsers, { search: q, tenant_id: tenantId, status })
+      const org = (tenants ?? []).find((r) => String(r.id) === tenantId)?.name ?? 'organisation'
+      downloadCsv(`users-${org.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`, toCsv([
+        { header: 'Name', value: (u) => u.name },
+        { header: 'Email', value: (u) => u.email },
+        { header: 'Role', value: (u) => roleLabel(u.role) },
+        { header: 'Status', value: (u) => u.status },
+        { header: 'Email verified', value: (u) => (u.email_verified ? 'yes' : 'no') },
+        { header: 'Locked out', value: (u) => (u.locked ? 'yes' : 'no') },
+        { header: 'Platform admin', value: (u) => (u.is_platform_admin ? 'yes' : 'no') },
+        { header: 'Signed in to', value: (u) => u.tenant?.name },
+        { header: 'Created', value: (u) => u.created_at },
+      ], all))
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setExporting(false)
+    }
   }
 
   return (
@@ -37,7 +94,10 @@ export default function UsersPage() {
       <PageHeader
         title={t('Users')}
         subtitle={t('Every sign-in on the platform. Open one to reset a password, unlock, pause or delete it, or change what they can do.')}
-        actions={tenantId && <Button icon={RiAddLine} onClick={() => setAdding(true)}>{t('Add user')}</Button>}
+        actions={tenantId && <>
+          <Button variant="outline" icon={RiDownloadLine} loading={exporting} onClick={exportCsv}>{t('Export CSV')}</Button>
+          <Button icon={RiAddLine} onClick={() => setAdding(true)}>{t('Add user')}</Button>
+        </>}
       />
       <Card padded={false}>
         <div className="flex flex-wrap gap-3 border-b border-[var(--c-border)] p-4">
@@ -69,8 +129,19 @@ export default function UsersPage() {
             <p className="text-sm text-[var(--c-muted)]">{t('Pick one from the list above.')}</p>
           </div>
         ) : (<>
+          {picked.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-[var(--c-border)] bg-[var(--c-brand-soft)] px-5 py-2.5">
+              <span className="mr-auto text-sm font-semibold">{t('{count} selected', { count: picked.size })}</span>
+              <Button size="sm" variant="outline" icon={RiPauseCircleLine} disabled={!eligible.pause.length} onClick={() => setBulk('pause')}>{t('Pause ({count})', { count: eligible.pause.length })}</Button>
+              <Button size="sm" variant="outline" icon={RiPlayCircleLine} disabled={!eligible.resume.length} onClick={() => setBulk('resume')}>{t('Resume ({count})', { count: eligible.resume.length })}</Button>
+              <Button size="sm" variant="outline" icon={RiKey2Line} disabled={!eligible.link.length} onClick={() => setBulk('link')}>{t('Send password link ({count})', { count: eligible.link.length })}</Button>
+              <Button size="sm" variant="ghost" onClick={() => setPicked(new Map())}>{t('Clear')}</Button>
+            </div>
+          )}
           <Table
-            rows={data?.data ?? []}
+            rows={rows}
+            selected={new Set(picked.keys())}
+            onSelect={onSelect}
             loading={loading}
             error={error}
             onRowClick={(u) => navigate(`/users/${u.id}`)}
@@ -95,6 +166,24 @@ export default function UsersPage() {
           <Pagination meta={data?.meta} onPage={(p) => setParam('page', String(p))} />
         </>)}
       </Card>
+      {bulk === 'pause' && (
+        <ActionModal title={t('Pause {count} users?', { count: eligible.pause.length })} actionLabel={t('Pause them')} danger reason reasonPlaceholder={t('e.g. Left the company')} onClose={() => setBulk(null)}
+          run={({ reason }) => runBulk(eligible.pause, (u) => pauseUser(u.id, reason), '{count} paused.')}>
+          {t('They are signed out everywhere and can’t sign in until resumed.')}
+        </ActionModal>
+      )}
+      {bulk === 'resume' && (
+        <ActionModal title={t('Resume {count} users?', { count: eligible.resume.length })} actionLabel={t('Resume them')} onClose={() => setBulk(null)}
+          run={() => runBulk(eligible.resume, (u) => resumeUser(u.id), '{count} resumed.')}>
+          {t('They can sign in again.')}
+        </ActionModal>
+      )}
+      {bulk === 'link' && (
+        <ActionModal title={t('Email {count} users?', { count: eligible.link.length })} actionLabel={t('Send')} onClose={() => setBulk(null)}
+          run={() => runBulk(eligible.link, (u) => sendPasswordLink(u.id), '{count} emailed.')}>
+          {t('Anyone who hasn’t accepted their invitation gets it again; everyone else gets a password reset link.')}
+        </ActionModal>
+      )}
       {adding && <AddUser tenantId={tenantId} onClose={() => setAdding(false)} onAdded={(u) => navigate(`/users/${u.id}`)} />}
     </>
   )

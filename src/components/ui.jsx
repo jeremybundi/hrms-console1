@@ -129,14 +129,24 @@ export function Confirm({ title, children, confirmLabel, danger, busy, onConfirm
 
 /**
  * columns: [{ key, header, render?(row), className? }]. Narrower than `minWidth` it scrolls sideways.
+ * With `selected` (a Set of row ids) and `onSelect(nextSet)`, each row gets a checkbox.
  */
-export function Table({ columns, rows, loading, error, empty, onRowClick, minWidth = 640 }) {
+export function Table({ columns, rows, loading, error, empty, onRowClick, minWidth = 640, selected, onSelect }) {
   const { t } = useI18n()
+  const selectable = Boolean(selected && onSelect)
+  const allOn = selectable && rows.length > 0 && rows.every((r) => selected.has(r.id))
+  const toggle = (ids, on) => {
+    const next = new Set(selected)
+    ids.forEach((id) => (on ? next.add(id) : next.delete(id)))
+    onSelect(next)
+  }
+  const box = 'h-4 w-4 cursor-pointer accent-[var(--c-brand)]'
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm" style={{ minWidth }}>
         <thead>
           <tr className="border-b border-[var(--c-border)] text-[11px] uppercase tracking-wider text-[var(--c-muted)]">
+            {selectable && <th className="w-10 py-3 pl-5"><input type="checkbox" aria-label={t('Select all on this page')} className={box} checked={allOn} disabled={rows.length === 0} onChange={(e) => toggle(rows.map((r) => r.id), e.target.checked)} /></th>}
             {columns.map((c) => <th key={c.key} className={`px-5 py-3 font-semibold ${c.className ?? ''}`}>{c.header}</th>)}
           </tr>
         </thead>
@@ -147,6 +157,7 @@ export function Table({ columns, rows, loading, error, empty, onRowClick, minWid
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               className={`border-b border-[var(--c-border)] last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-[var(--c-input)]/60' : ''}`}
             >
+              {selectable && <td className="w-10 py-3 pl-5" onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={t('Select')} className={box} checked={selected.has(row.id)} onChange={(e) => toggle([row.id], e.target.checked)} /></td>}
               {columns.map((c) => <td key={c.key} className={`px-5 py-3 align-middle ${c.className ?? ''}`}>{c.render ? c.render(row) : row[c.key]}</td>)}
             </tr>
           ))}
