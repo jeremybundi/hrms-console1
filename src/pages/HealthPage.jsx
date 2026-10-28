@@ -4,12 +4,14 @@ import { forgetFailedJob, getHealth, retryFailedJob } from '../api/platform'
 import { useResource } from '../lib/useResource'
 import { formatDateTime, formatNumber, timeAgo } from '../lib/format'
 import { useToast } from '../components/toast'
+import { useI18n } from '../i18n/context'
 import { Badge, Button, Card, Confirm, Details, PageHeader, Spinner, Table } from '../components/ui'
 
 const REFRESH_MS = 30_000
 
 export default function HealthPage() {
   const toast = useToast()
+  const { t } = useI18n()
   const { data: h, loading, error, reload } = useResource(getHealth, [])
   const [busy, setBusy] = useState(null)
   const [forget, setForget] = useState(null)
@@ -40,18 +42,18 @@ export default function HealthPage() {
   const failures24h = Object.values(h.integrations.failures_24h ?? {}).reduce((a, b) => a + Number(b), 0)
   const overdue = h.scheduler.filter((t) => t.overdue || !t.ok)
   const checks = [
-    { label: 'Queue', ok: h.queue.failed === 0, text: h.queue.failed ? `${h.queue.failed} failed job${h.queue.failed === 1 ? '' : 's'}` : 'No failed jobs' },
-    { label: 'Scheduler', ok: h.scheduler.length > 0 && overdue.length === 0, text: h.scheduler.length === 0 ? 'Hasn’t run yet' : overdue.length ? `${overdue.length} task${overdue.length === 1 ? '' : 's'} need a look` : 'All tasks on time' },
-    { label: 'Integrations', ok: failures24h === 0, text: failures24h ? `${failures24h} failed call${failures24h === 1 ? '' : 's'} in 24h` : 'No failures in 24h' },
-    { label: 'Signatures', ok: h.signatures.not_checked_2h === 0, text: h.signatures.not_checked_2h ? `${h.signatures.not_checked_2h} not checked in 2h` : `${h.signatures.waiting} waiting, all checked` },
+    { label: t('Queue'), ok: h.queue.failed === 0, text: h.queue.failed ? t('{count} failed jobs', { count: h.queue.failed }) : t('No failed jobs') },
+    { label: t('Scheduler'), ok: h.scheduler.length > 0 && overdue.length === 0, text: h.scheduler.length === 0 ? t('Hasn’t run yet') : overdue.length ? t('{count} tasks need a look', { count: overdue.length }) : t('All tasks on time') },
+    { label: t('Integrations'), ok: failures24h === 0, text: failures24h ? t('{count} failed calls in 24h', { count: failures24h }) : t('No failures in 24h') },
+    { label: t('Signatures'), ok: h.signatures.not_checked_2h === 0, text: h.signatures.not_checked_2h ? t('{count} not checked in 2h', { count: h.signatures.not_checked_2h }) : t('{count} waiting, all checked', { count: h.signatures.waiting }) },
   ]
 
   return (
     <>
       <PageHeader
-        title="System health"
-        subtitle={`Checked ${timeAgo(h.app.checked_at)}. Refreshes by itself every 30 seconds.`}
-        actions={<Button variant="outline" icon={RiRefreshLine} loading={loading} onClick={() => reload()}>Refresh</Button>}
+        title={t('System health')}
+        subtitle={t('Checked {when}. Refreshes by itself every 30 seconds.', { when: timeAgo(h.app.checked_at) })}
+        actions={<Button variant="outline" icon={RiRefreshLine} loading={loading} onClick={() => reload()}>{t('Refresh')}</Button>}
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -66,35 +68,35 @@ export default function HealthPage() {
         ))}
       </div>
 
-      <Card title={`Failed jobs (${formatNumber(h.queue.failed)})`} className="mt-4" padded={false}
-        action={h.queue.pending !== null && <span className="text-xs text-[var(--c-muted)]">{formatNumber(h.queue.pending)} waiting in the queue</span>}>
+      <Card title={t('Failed jobs ({count})', { count: formatNumber(h.queue.failed) })} className="mt-4" padded={false}
+        action={h.queue.pending !== null && <span className="text-xs text-[var(--c-muted)]">{t('{count} waiting in the queue', { count: formatNumber(h.queue.pending) })}</span>}>
         <Table
           rows={h.queue.recent_failed}
-          empty="No failed jobs. Everything on the queue ran."
+          empty={t('No failed jobs. Everything on the queue ran.')}
           columns={[
-            { key: 'job', header: 'Job', render: (j) => <><p className="font-mono text-xs font-medium">{j.job.split('\\').pop()}</p><p className="text-xs text-[var(--c-muted)]">{j.queue}</p></> },
-            { key: 'error', header: 'Error', render: (j) => <p className="max-w-md truncate text-xs text-[var(--c-bad)]" title={j.error}>{j.error}</p> },
-            { key: 'failed_at', header: 'Failed', render: (j) => <span title={formatDateTime(j.failed_at)}>{timeAgo(j.failed_at)}</span> },
+            { key: 'job', header: t('Job'), render: (j) => <><p className="font-mono text-xs font-medium">{j.job.split('\\').pop()}</p><p className="text-xs text-[var(--c-muted)]">{j.queue}</p></> },
+            { key: 'error', header: t('Error'), render: (j) => <p className="max-w-md truncate text-xs text-[var(--c-bad)]" title={j.error}>{j.error}</p> },
+            { key: 'failed_at', header: t('Failed'), render: (j) => <span title={formatDateTime(j.failed_at)}>{timeAgo(j.failed_at)}</span> },
             { key: 'actions', header: '', className: 'text-right', render: (j) => (
               <span className="flex justify-end gap-1">
-                <Button variant="ghost" size="sm" icon={RiReplyLine} loading={busy === j.uuid} onClick={() => run(j.uuid, () => retryFailedJob(j.uuid), 'The job is back on the queue.')}>Retry</Button>
-                <Button variant="ghost" size="sm" icon={RiDeleteBinLine} aria-label="Remove" onClick={() => setForget(j)} />
+                <Button variant="ghost" size="sm" icon={RiReplyLine} loading={busy === j.uuid} onClick={() => run(j.uuid, () => retryFailedJob(j.uuid), t('The job is back on the queue.'))}>{t('Retry')}</Button>
+                <Button variant="ghost" size="sm" icon={RiDeleteBinLine} aria-label={t('Remove')} onClick={() => setForget(j)} />
               </span>
             ) },
           ]}
         />
       </Card>
 
-      <Card title="Scheduled tasks" className="mt-4" padded={false}>
+      <Card title={t('Scheduled tasks')} className="mt-4" padded={false}>
         <Table
           rows={h.scheduler.map((t) => ({ ...t, id: t.task }))}
-          empty="No scheduled task has run yet. On the server, cron should run `php artisan schedule:run` every minute."
+          empty={t('No scheduled task has run yet. On the server, cron should run `php artisan schedule:run` every minute.')}
           columns={[
-            { key: 'task', header: 'Task', render: (t) => <span className="font-mono text-xs">{t.task}</span> },
-            { key: 'expression', header: 'Runs', render: (t) => <span className="font-mono text-xs text-[var(--c-muted)]">{t.expression}</span> },
-            { key: 'ran_at', header: 'Last ran', render: (t) => <span title={formatDateTime(t.ran_at)}>{timeAgo(t.ran_at)}{t.seconds !== null && <span className="text-xs text-[var(--c-muted)]"> · {t.seconds}s</span>}</span> },
-            { key: 'next', header: 'Next', render: (t) => timeAgo(t.next_due_at) },
-            { key: 'status', header: 'Status', render: (t) => (!t.ok ? <Badge tone="bad" >Failed</Badge> : t.overdue ? <Badge tone="warn">Missed runs</Badge> : <Badge tone="ok">On time</Badge>) },
+            { key: 'task', header: t('Task'), render: (t) => <span className="font-mono text-xs">{t.task}</span> },
+            { key: 'expression', header: t('Runs'), render: (t) => <span className="font-mono text-xs text-[var(--c-muted)]">{t.expression}</span> },
+            { key: 'ran_at', header: t('Last ran'), render: (t) => <span title={formatDateTime(t.ran_at)}>{timeAgo(t.ran_at)}{t.seconds !== null && <span className="text-xs text-[var(--c-muted)]"> · {t.seconds}s</span>}</span> },
+            { key: 'next', header: t('Next'), render: (t) => timeAgo(t.next_due_at) },
+            { key: 'status', header: t('Status'), render: (t) => (!t.ok ? <Badge tone="bad">{t('Failed')}</Badge> : t.overdue ? <Badge tone="warn">{t('Missed runs')}</Badge> : <Badge tone="ok">{t('On time')}</Badge>) },
           ]}
         />
         {h.scheduler.some((t) => t.error) && (
@@ -104,70 +106,70 @@ export default function HealthPage() {
         )}
       </Card>
 
-      <Card title="Integration failures, last 24 hours" className="mt-4" padded={false}>
+      <Card title={t('Integration failures, last 24 hours')} className="mt-4" padded={false}>
         <Table
           rows={h.integrations.recent_failures}
-          empty="No integration call failed in the last 24 hours."
+          empty={t('No integration call failed in the last 24 hours.')}
           columns={[
-            { key: 'type', header: 'Integration', render: (l) => <Badge tone="brand">{l.integration_type === 'signature' ? 'DD-Sign' : l.integration_type.toUpperCase()}</Badge> },
-            { key: 'tenant', header: 'Organisation', render: (l) => l.tenant_name ?? '—' },
-            { key: 'call', header: 'Call', render: (l) => <p className="max-w-xs truncate font-mono text-xs" title={l.endpoint}>{l.method} {l.endpoint}</p> },
-            { key: 'error', header: 'Error', render: (l) => <p className="max-w-sm truncate text-xs text-[var(--c-bad)]" title={l.error_message}>{l.http_status_code ? `${l.http_status_code} · ` : ''}{l.error_message ?? 'Failed'}</p> },
-            { key: 'at', header: 'When', render: (l) => timeAgo(l.created_at) },
+            { key: 'type', header: t('Integration'), render: (l) => <Badge tone="brand">{l.integration_type === 'signature' ? 'DD-Sign' : l.integration_type.toUpperCase()}</Badge> },
+            { key: 'tenant', header: t('Organisation'), render: (l) => l.tenant_name ?? '—' },
+            { key: 'call', header: t('Call'), render: (l) => <p className="max-w-xs truncate font-mono text-xs" title={l.endpoint}>{l.method} {l.endpoint}</p> },
+            { key: 'error', header: t('Error'), render: (l) => <p className="max-w-sm truncate text-xs text-[var(--c-bad)]" title={l.error_message}>{l.http_status_code ? `${l.http_status_code} · ` : ''}{l.error_message ?? t('Failed')}</p> },
+            { key: 'at', header: t('When'), render: (l) => timeAgo(l.created_at) },
           ]}
         />
       </Card>
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card title="DD-Sign connections" padded={false}>
+        <Card title={t('DD-Sign connections')} padded={false}>
           <Table
             rows={h.integrations.signatures}
             minWidth={420}
-            empty="No organisation has connected DD-Sign."
+            empty={t('No organisation has connected DD-Sign.')}
             columns={[
-              { key: 'tenant', header: 'Organisation', render: (s) => <><p className="font-medium">{s.tenant_name}</p><p className="max-w-[14rem] truncate font-mono text-[11px] text-[var(--c-muted)]">{s.base_url}</p></> },
-              { key: 'status', header: 'Status', render: (s) => <Connection active={s.is_active} error={s.last_error_message} /> },
-              { key: 'last', header: 'Last worked', render: (s) => timeAgo(s.last_success_at) },
+              { key: 'tenant', header: t('Organisation'), render: (s) => <><p className="font-medium">{s.tenant_name}</p><p className="max-w-[14rem] truncate font-mono text-[11px] text-[var(--c-muted)]">{s.base_url}</p></> },
+              { key: 'status', header: t('Status'), render: (s) => <Connection active={s.is_active} error={s.last_error_message} /> },
+              { key: 'last', header: t('Last worked'), render: (s) => timeAgo(s.last_success_at) },
             ]}
           />
         </Card>
-        <Card title="ERP connections" padded={false}>
+        <Card title={t('ERP connections')} padded={false}>
           <Table
             rows={h.integrations.erp}
             minWidth={420}
-            empty="No organisation has connected an ERP."
+            empty={t('No organisation has connected an ERP.')}
             columns={[
-              { key: 'tenant', header: 'Organisation', render: (e) => <><p className="font-medium">{e.tenant_name}</p><p className="text-xs text-[var(--c-muted)]">{e.label} · {e.erp_type}</p></> },
-              { key: 'status', header: 'Status', render: (e) => <Connection active={e.status !== 'inactive'} error={e.last_error_message} failures={e.consecutive_failures} /> },
-              { key: 'last', header: 'Last worked', render: (e) => timeAgo(e.last_success_at) },
+              { key: 'tenant', header: t('Organisation'), render: (e) => <><p className="font-medium">{e.tenant_name}</p><p className="text-xs text-[var(--c-muted)]">{e.label} · {e.erp_type}</p></> },
+              { key: 'status', header: t('Status'), render: (e) => <Connection active={e.status !== 'inactive'} error={e.last_error_message} failures={e.consecutive_failures} /> },
+              { key: 'last', header: t('Last worked'), render: (e) => timeAgo(e.last_success_at) },
             ]}
           />
         </Card>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card title="Signatures">
+        <Card title={t('Signatures')}>
           <Details items={[
-            ['Waiting for a signature', formatNumber(h.signatures.waiting)],
-            ['Not checked in 2 hours', h.signatures.not_checked_2h ? <span className="text-[var(--c-warn)]">{formatNumber(h.signatures.not_checked_2h)}: is the hourly check running?</span> : '0'],
-            ['Signed, copy not saved yet', formatNumber(h.signatures.signed_without_copy)],
+            [t('Waiting for a signature'), formatNumber(h.signatures.waiting)],
+            [t('Not checked in 2 hours'), h.signatures.not_checked_2h ? <span className="text-[var(--c-warn)]">{t('{count}: is the hourly check running?', { count: formatNumber(h.signatures.not_checked_2h) })}</span> : '0'],
+            [t('Signed, copy not saved yet'), formatNumber(h.signatures.signed_without_copy)],
           ]} />
         </Card>
-        <Card title="Server">
+        <Card title={t('Server')}>
           <Details items={[
-            ['Environment', <span className="flex items-center gap-2">{h.app.environment}{h.app.debug && <Badge tone="warn">Debug on</Badge>}</span>],
+            [t('Environment'), <span className="flex items-center gap-2">{h.app.environment}{h.app.debug && <Badge tone="warn">{t('Debug on')}</Badge>}</span>],
             ['PHP / Laravel', `${h.app.php} / ${h.app.laravel}`],
-            ['Database', h.app.database],
-            ['Queue / Cache', `${h.app.queue} / ${h.app.cache}`],
-            ['Time zone', h.app.timezone],
+            [t('Database'), h.app.database],
+            [t('Queue / Cache'), `${h.app.queue} / ${h.app.cache}`],
+            [t('Time zone'), h.app.timezone],
           ]} />
         </Card>
       </div>
 
       {forget && (
-        <Confirm title="Remove this failed job?" danger confirmLabel="Remove" busy={busy === 'forget'} onClose={() => setForget(null)}
-          onConfirm={() => run('forget', () => forgetFailedJob(forget.uuid), 'The failed job was removed.')}>
-          {forget.job.split('\\').pop()} won’t be retried. Use Retry instead if it should still run.
+        <Confirm title={t('Remove this failed job?')} danger confirmLabel={t('Remove')} busy={busy === 'forget'} onClose={() => setForget(null)}
+          onConfirm={() => run('forget', () => forgetFailedJob(forget.uuid), t('The failed job was removed.'))}>
+          {t('{job} won’t be retried. Use Retry instead if it should still run.', { job: forget.job.split('\\').pop() })}
         </Confirm>
       )}
     </>
@@ -175,7 +177,8 @@ export default function HealthPage() {
 }
 
 function Connection({ active, error, failures }) {
-  if (!active) return <Badge>Off</Badge>
-  if (error) return <span title={error}><Badge tone="bad">Failing{failures ? ` ×${failures}` : ''}</Badge></span>
-  return <Badge tone="ok">Working</Badge>
+  const { t } = useI18n()
+  if (!active) return <Badge>{t('Off')}</Badge>
+  if (error) return <span title={error}><Badge tone="bad">{t('Failing')}{failures ? ` ×${failures}` : ''}</Badge></span>
+  return <Badge tone="ok">{t('Working')}</Badge>
 }

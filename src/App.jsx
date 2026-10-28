@@ -9,11 +9,13 @@ import OrganisationPage from './pages/OrganisationPage'
 import UsersPage from './pages/UsersPage'
 import UserPage from './pages/UserPage'
 import HealthPage from './pages/HealthPage'
+import ActivityPage from './pages/ActivityPage'
+import AuditPage from './pages/AuditPage'
 
 export default function App() {
   const { user, ready } = useAuth()
 
-  if (!ready) return <Spinner label="Opening the console…" />
+  if (!ready) return <Spinner />
   if (!user) return <LoginPage />
 
   return (
@@ -25,6 +27,8 @@ export default function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="users/:id" element={<UserPage />} />
         <Route path="health" element={<HealthPage />} />
+        <Route path="activity" element={<ActivityPage />} />
+        <Route path="audit" element={<AuditPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

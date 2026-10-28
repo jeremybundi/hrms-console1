@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { useI18n } from '../i18n/context'
 import { RiArrowLeftSLine, RiArrowRightSLine, RiCloseLine, RiLoader4Line } from 'react-icons/ri'
 
 const BUTTON = {
@@ -65,6 +67,10 @@ export function Input({ label, error, hint, className = '', ...props }) {
   return <Field label={label} error={error} hint={hint}><input {...props} className={`${CONTROL} ${className}`} /></Field>
 }
 
+export function Textarea({ label, error, hint, className = '', ...props }) {
+  return <Field label={label} error={error} hint={hint}><textarea rows={3} {...props} className={`${CONTROL} h-auto py-2 ${className}`} /></Field>
+}
+
 export function Select({ label, error, children, className = '', ...props }) {
   return <Field label={label} error={error}><select {...props} className={`${CONTROL} ${className}`}>{children}</select></Field>
 }
@@ -86,6 +92,7 @@ export function Toggle({ checked, onChange, disabled, label }) {
 }
 
 export function Modal({ title, onClose, footer, children, width = 'max-w-lg' }) {
+  const { t } = useI18n()
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
@@ -97,7 +104,7 @@ export function Modal({ title, onClose, footer, children, width = 'max-w-lg' }) 
       <div role="dialog" aria-label={title} className={`w-full ${width} rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] shadow-2xl`} onMouseDown={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between border-b border-[var(--c-border)] px-5 py-4">
           <h2 className="font-heading text-base font-bold">{title}</h2>
-          <button type="button" aria-label="Close" onClick={onClose} className="rounded-lg p-1 text-[var(--c-muted)] hover:bg-[var(--c-input)]"><RiCloseLine size={20} /></button>
+          <button type="button" aria-label={t('Close')} onClick={onClose} className="rounded-lg p-1 text-[var(--c-muted)] hover:bg-[var(--c-input)]"><RiCloseLine size={20} /></button>
         </header>
         <div className="px-5 py-4">{children}</div>
         {footer && <footer className="flex justify-end gap-2 border-t border-[var(--c-border)] px-5 py-3">{footer}</footer>}
@@ -107,12 +114,13 @@ export function Modal({ title, onClose, footer, children, width = 'max-w-lg' }) 
 }
 
 /** Asks before something that's hard to undo. */
-export function Confirm({ title, children, confirmLabel = 'Confirm', danger, busy, onConfirm, onClose }) {
+export function Confirm({ title, children, confirmLabel, danger, busy, onConfirm, onClose }) {
+  const { t } = useI18n()
   return (
     <Modal
       title={title}
       onClose={onClose}
-      footer={<><Button variant="ghost" onClick={onClose}>Cancel</Button><Button variant={danger ? 'danger' : 'primary'} loading={busy} onClick={onConfirm}>{confirmLabel}</Button></>}
+      footer={<><Button variant="ghost" onClick={onClose}>{t('Cancel')}</Button><Button variant={danger ? 'danger' : 'primary'} loading={busy} onClick={onConfirm}>{confirmLabel ?? t('Confirm')}</Button></>}
     >
       <div className="text-sm leading-relaxed text-[var(--c-muted)]">{children}</div>
     </Modal>
@@ -122,7 +130,8 @@ export function Confirm({ title, children, confirmLabel = 'Confirm', danger, bus
 /**
  * columns: [{ key, header, render?(row), className? }]. Narrower than `minWidth` it scrolls sideways.
  */
-export function Table({ columns, rows, loading, error, empty = 'Nothing here yet.', onRowClick, minWidth = 640 }) {
+export function Table({ columns, rows, loading, error, empty, onRowClick, minWidth = 640 }) {
+  const { t } = useI18n()
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm" style={{ minWidth }}>
@@ -145,39 +154,43 @@ export function Table({ columns, rows, loading, error, empty = 'Nothing here yet
       </table>
       {loading && rows.length === 0 && <Spinner />}
       {error && <p className="px-5 py-6 text-sm text-[var(--c-bad)]">{error}</p>}
-      {!loading && !error && rows.length === 0 && <p className="px-5 py-10 text-center text-sm text-[var(--c-muted)]">{empty}</p>}
+      {!loading && !error && rows.length === 0 && <p className="px-5 py-10 text-center text-sm text-[var(--c-muted)]">{empty ?? t('Nothing here yet.')}</p>}
     </div>
   )
 }
 
 export function Pagination({ meta, onPage }) {
+  const { t } = useI18n()
   if (!meta || meta.last_page <= 1) return null
   return (
     <div className="flex items-center justify-between border-t border-[var(--c-border)] px-5 py-3 text-xs text-[var(--c-muted)]">
-      <span>Page {meta.current_page} of {meta.last_page} · {meta.total} in all</span>
+      <span>{t('Page {page} of {last} · {total} in all', { page: meta.current_page, last: meta.last_page, total: meta.total })}</span>
       <div className="flex gap-1">
-        <Button variant="outline" size="sm" icon={RiArrowLeftSLine} disabled={meta.current_page <= 1} onClick={() => onPage(meta.current_page - 1)}>Previous</Button>
-        <Button variant="outline" size="sm" disabled={meta.current_page >= meta.last_page} onClick={() => onPage(meta.current_page + 1)}>Next<RiArrowRightSLine size={16} /></Button>
+        <Button variant="outline" size="sm" icon={RiArrowLeftSLine} disabled={meta.current_page <= 1} onClick={() => onPage(meta.current_page - 1)}>{t('Previous')}</Button>
+        <Button variant="outline" size="sm" disabled={meta.current_page >= meta.last_page} onClick={() => onPage(meta.current_page + 1)}>{t('Next')}<RiArrowRightSLine size={16} /></Button>
       </div>
     </div>
   )
 }
 
-export function Stat({ label, value, hint, icon: Icon, tone = 'brand' }) {
+/** A headline number. With `to`, the whole card links to where the number comes from. */
+export function Stat({ label, value, hint, icon: Icon, tone = 'brand', to }) {
+  const Box = to ? Link : 'div'
   return (
-    <div className="rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] p-5">
+    <Box to={to} className={`block rounded-2xl border border-[var(--c-border)] bg-[var(--c-surface)] p-5 ${to ? 'transition hover:border-[var(--c-brand)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--c-brand-soft)]' : ''}`}>
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-[var(--c-muted)]">{label}</p>
         {Icon && <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${TONE[tone]}`}><Icon size={17} /></span>}
       </div>
       <p className="mt-2 font-heading text-3xl font-bold tabular-nums">{value}</p>
       {hint && <p className="mt-1 text-xs text-[var(--c-muted)]">{hint}</p>}
-    </div>
+    </Box>
   )
 }
 
-export function Spinner({ label = 'Loading…' }) {
-  return <p className="flex items-center justify-center gap-2 py-10 text-sm text-[var(--c-muted)]"><RiLoader4Line size={18} className="animate-spin" />{label}</p>
+export function Spinner({ label }) {
+  const { t } = useI18n()
+  return <p className="flex items-center justify-center gap-2 py-10 text-sm text-[var(--c-muted)]"><RiLoader4Line size={18} className="animate-spin" />{label ?? t('Loading…')}</p>
 }
 
 export function PageHeader({ title, subtitle, actions, back }) {

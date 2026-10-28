@@ -3,8 +3,6 @@ import { AuthContext } from './context'
 import { getToken, setToken } from '../api/client'
 import * as platform from '../api/platform'
 
-const NOT_ADMIN = 'This sign-in can’t use the console. Ask a platform admin to run `php artisan platform:admin your@email` on the server.'
-
 /** Keeps the platform admin signed in, checking on load that the stored token still works. */
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -32,7 +30,7 @@ export default function AuthProvider({ children }) {
       setToken(token)
       await platform.signOut().catch(() => {})
       setToken(null)
-      throw new Error(NOT_ADMIN)
+      throw Object.assign(new Error('This sign-in can’t use the console.'), { notAdmin: true })
     }
     setToken(token)
     setUser(u)

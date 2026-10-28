@@ -20,11 +20,16 @@
   --c-warn-soft: #fef3c7;
   --c-bad: #b91c1c;
   --c-bad-soft: #fee2e2;
-  --c-side: #0f1629;
-  --c-side-text: #c3c9dc;
-  --c-side-active: #1c2744;
+  --c-side: #ffffff;
+  --c-side-text: #5b6075;
+  --c-side-strong: #1a1d2b;
+  --c-side-active: #eaf0fd;
+  --c-side-hover: #f3f6fc;
+  --c-side-border: #e3e8f2;
+  color-scheme: light;
 }
 
+/* Dark follows the system unless the viewer picked a theme (data-theme on <html>). */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     --c-bg: #0b1020;
@@ -41,10 +46,48 @@
     --c-warn-soft: #78350f66;
     --c-bad: #f87171;
     --c-bad-soft: #7f1d1d66;
-    --c-side: #080c18;
-    --c-side-active: #172038;
+    --c-side: #0c1222;
+    --c-side-text: #b4bbd0;
+    --c-side-strong: #ffffff;
+    --c-side-active: #1a2442;
+    --c-side-hover: #141c33;
+    --c-side-border: #ffffff14;
+    color-scheme: dark;
   }
 }
+
+:root[data-theme='dark'] {
+  --c-bg: #0b1020;
+  --c-surface: #131a2e;
+  --c-text: #e6e9f2;
+  --c-muted: #949ab0;
+  --c-border: #263049;
+  --c-input: #1b2440;
+  --c-brand: #6b8cff;
+  --c-brand-soft: #6b8cff1f;
+  --c-ok: #4ade80;
+  --c-ok-soft: #14532d66;
+  --c-warn: #fbbf24;
+  --c-warn-soft: #78350f66;
+  --c-bad: #f87171;
+  --c-bad-soft: #7f1d1d66;
+  --c-side: #0c1222;
+  --c-side-text: #b4bbd0;
+  --c-side-strong: #ffffff;
+  --c-side-active: #1a2442;
+  --c-side-hover: #141c33;
+  --c-side-border: #ffffff14;
+    color-scheme: dark;
+}
+
+/* The logo comes in two versions; the dark one has its navy lettering lightened. */
+.logo-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .logo-light { display: none; }
+  :root:not([data-theme='light']) .logo-dark { display: block; }
+}
+:root[data-theme='dark'] .logo-light { display: none; }
+:root[data-theme='dark'] .logo-dark { display: block; }
 
 * { box-sizing: border-box; }
 
